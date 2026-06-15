@@ -1,0 +1,22 @@
+{
+  "name": "graphic-layout-tool",
+  "version": "1.0.0",
+  "description": "一个离线运行的中文长文分页排版和 PNG 导出工具",
+  "type": "module",
+  "license": "MIT",
+  "author": "lbeta",
+  "keywords": [
+    "graphic-layout",
+    "chinese-typography",
+    "canvas",
+    "image-export",
+    "social-media"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/layout.test.mjs tests/server.test.mjs tests/imageFiles.test.mjs tests/exportImages.test.mjs tests/settingsControls.test.mjs tests/draftStorage.test.mjs tests/editorHistory.test.mjs"
+  }
+}

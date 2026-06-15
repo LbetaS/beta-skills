@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>图文排版工具开发版</title>
+    <link rel="stylesheet" href="./src/styles.css">
+  </head>
+  <body>
+    <main class="app">
+      <aside class="panel" aria-label="排版设置">
+        <div class="panel-head">
+          <div>
+            <h1>图文排版开发版</h1>
+            <p class="hint">输入长文，自动分页，导出 1080 x 1440 PNG。</p>
+          </div>
+          <span class="status-pill" id="pageCount">0 张</span>
+        </div>
+
+        <section class="panel-section editor-section">
+          <div class="section-head">
+            <h2>正文</h2>
+            <div class="text-tools" aria-label="正文工具">
+              <button class="tool-button undo-tool-button" id="undoButton" type="button" title="撤回上一步 Ctrl+Z" aria-label="撤回上一步" disabled>↶</button>
+              <button class="tool-button" id="boldButton" type="button" title="加粗选中文字 Ctrl+B" aria-label="加粗选中文字">B</button>
+              <button class="tool-button bullet-tool-button" id="bulletButton" type="button" title="添加圆点列表" aria-label="添加圆点列表">•</button>
+              <button class="tool-button code-tool-button" id="codeButton" type="button" title="插入代码模块" aria-label="插入代码模块">码</button>
+              <button class="tool-button image-tool-button" id="imageButton" type="button" title="插入图片" aria-label="插入图片">图</button>
+              <button class="tool-button page-break-button" id="pageBreakButton" type="button" title="插入空格换页" aria-label="插入空格换页">换</button>
+              <input id="inlineImageInput" type="file" accept="image/*" hidden>
+            </div>
+          </div>
+          <div class="image-list" id="imageList" aria-live="polite"></div>
+          <textarea id="articleText" spellcheck="false" aria-label="正文"></textarea>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-head">
+            <h2>标题与作者</h2>
+            <label class="switch">
+              <input type="checkbox" data-setting="titleHeaderEnabled" checked>
+              <span>显示标题</span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" data-setting="authorHeaderEnabled" checked>
+              <span>显示作者</span>
+            </label>
+          </div>
+          <div class="controls two-col">
+            <div class="field full">
+              <label for="articleTitle">文章标题</label>
+              <input id="articleTitle" type="text" data-setting="articleTitle" value="从来没人说过，学AI第一步是Github">
+            </div>
+            <div class="field full">
+              <label>标题字号 <span data-output="titleFontSize">66</span></label>
+              <input type="range" min="48" max="86" value="66" data-setting="titleFontSize">
+            </div>
+            <div class="field full">
+              <label>标题字间距 <span data-output="titleLetterSpacing">4</span> px</label>
+              <input type="range" min="0" max="10" value="4" data-setting="titleLetterSpacing">
+            </div>
+            <div class="field full">
+              <label>作者信息大小 <span data-output="authorScale">100</span>%</label>
+              <input type="range" min="80" max="130" value="100" data-setting="authorScale">
+            </div>
+            <div class="field full">
+              <label>头像与作者位置 <span data-output="authorOffsetY">0</span> px</label>
+              <input type="range" min="-80" max="160" value="0" data-setting="authorOffsetY">
+            </div>
+            <div class="field">
+              <label for="authorName">作者名</label>
+              <input id="authorName" type="text" data-setting="authorName" value="霖贝塔">
+            </div>
+            <div class="field">
+              <label for="authorDate">日期</label>
+              <input id="authorDate" type="text" data-setting="authorDate" value="05/15">
+            </div>
+            <div class="field full">
+              <label>头像</label>
+              <div class="avatar-control">
+                <button class="secondary-button" id="avatarSelectButton" type="button">选择头像</button>
+                <span class="avatar-status" id="avatarStatus">未上传，使用默认头像</span>
+                <button class="avatar-remove" id="avatarRemoveButton" type="button" hidden>移除</button>
+                <input id="avatarInput" type="file" accept="image/*" hidden>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-head">
+            <h2>画布</h2>
+          </div>
+          <div class="controls two-col">
+          <div class="field">
+            <label for="pageWidth">画布宽</label>
+            <input id="pageWidth" type="number" min="720" max="2160" value="1080" data-setting="width">
+          </div>
+          <div class="field">
+            <label for="pageHeight">画布高</label>
+            <input id="pageHeight" type="number" min="960" max="2880" value="1440" data-setting="height">
+          </div>
+          <div class="field">
+            <label>字号 <span data-output="fontSize">43</span></label>
+            <input type="range" min="34" max="54" value="43" data-setting="fontSize">
+          </div>
+          <div class="field">
+            <label>字重 <span data-output="fontWeight">400</span></label>
+            <input type="range" min="200" max="700" step="50" value="400" data-setting="fontWeight">
+          </div>
+          <div class="field">
+            <label>行高 <span data-output="lineHeight">74</span></label>
+            <input type="range" min="52" max="86" value="74" data-setting="lineHeight">
+          </div>
+          <div class="field">
+            <label>段距 <span data-output="paragraphGap">52</span></label>
+            <input type="range" min="24" max="88" value="52" data-setting="paragraphGap">
+          </div>
+          <div class="field">
+            <label>上边距 <span data-output="marginTop">104</span></label>
+            <input type="range" min="60" max="150" value="104" data-setting="marginTop">
+          </div>
+          <div class="field">
+            <label>左右边距 <span data-output="marginLeft">88</span></label>
+            <input type="range" min="48" max="130" value="88" data-setting="marginLeft">
+          </div>
+          <div class="field">
+            <label>右边距 <span data-output="marginRight">88</span></label>
+            <input type="range" min="48" max="130" value="88" data-setting="marginRight">
+          </div>
+          <div class="field full">
+            <button class="secondary-button preset-button" id="darkModeButton" type="button">黑暗模式</button>
+          </div>
+          <div class="field">
+            <label for="backgroundColor">背景色</label>
+            <input id="backgroundColor" type="color" value="#0f0d0a" data-setting="backgroundColor">
+          </div>
+          <div class="field">
+            <label for="textColor">文字色</label>
+            <input id="textColor" type="color" value="#f1ece4" data-setting="textColor">
+          </div>
+          <div class="field">
+            <label for="pageNumberColor">页码/横线颜色</label>
+            <input id="pageNumberColor" type="color" value="#1f5966" data-setting="pageNumberColor">
+          </div>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button class="primary" id="exportButton" type="button">批量导出全部 PNG</button>
+        </div>
+      </aside>
+
+      <section class="workspace" aria-label="预览">
+        <div class="preview" id="preview"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
