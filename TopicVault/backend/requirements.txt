@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+dashscope
+requests
+python-multipart
