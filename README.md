@@ -2,7 +2,7 @@
 
 # 🧰 Beta Skills
 
-#### 贝塔自己在用的 AI 内容生产工具，都放在这里
+#### 我自己在用的 AI 生产力工具，都放在这里
 
 [![Projects](https://img.shields.io/badge/Projects-2-10B981?style=for-the-badge)](#projects)
 [![Local First](https://img.shields.io/badge/Local--First-Yes-3B82F6?style=for-the-badge)](#security)
