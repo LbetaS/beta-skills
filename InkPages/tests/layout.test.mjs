@@ -15,10 +15,11 @@ import {
   extractReferencedImageIds,
   insertImageReference,
   removeImageReference,
+  toggleQuoteSelection,
   wrapBoldSelection,
 } from '../src/editorActions.js';
 import { captureEditorViewport, restoreEditorViewport } from '../src/editorViewport.js';
-import { formatPageNumber } from '../src/render.js';
+import { drawPage, formatPageNumber } from '../src/render.js';
 
 const measure = (text, style = {}) => {
   const size = style.fontSize ?? 42;
@@ -112,6 +113,113 @@ test('createDefaultSettings uses the embedded reference serif font by default', 
 
   assert.match(settings.fontFamily, /XHS Reference Serif/);
   assert.equal(settings.fontWeight, 400);
+});
+
+test('createDefaultSettings includes emphasis quote defaults', () => {
+  const settings = createDefaultSettings();
+
+  assert.equal(settings.quoteColor, '#155b67');
+  assert.equal(settings.quoteBarWidth, 5);
+  assert.equal(settings.quotePaddingLeft, 28);
+  assert.equal(settings.quoteFontWeight, 700);
+});
+
+test('parseArticleBlocks recognizes quote paragraphs and keeps hard line breaks', () => {
+  const blocks = parseArticleBlocks('body\n\n> first line\n> **second line**');
+
+  assert.deepEqual(blocks, [
+    { type: 'text', text: 'body' },
+    { type: 'quote', text: 'first line\n**second line**' },
+  ]);
+});
+
+test('parseArticleBlocks keeps quote markers without content as ordinary text', () => {
+  assert.deepEqual(parseArticleBlocks('>'), [{ type: 'text', text: '>' }]);
+  assert.deepEqual(parseArticleBlocks('>   '), [{ type: 'text', text: '>' }]);
+  assert.deepEqual(parseArticleBlocks('>\n>   '), [{ type: 'text', text: '>\n>' }]);
+
+  assert.deepEqual(parseArticleBlocks('>\n> actual content'), [
+    { type: 'quote', text: '\nactual content' },
+  ]);
+});
+
+test('layoutArticle wraps and paginates emphasis quotes inside the footer boundary', () => {
+  const settings = createDefaultSettings({
+    width: 500,
+    height: 420,
+    marginLeft: 50,
+    marginRight: 50,
+    marginTop: 40,
+    footerHeight: 80,
+    fontSize: 30,
+    lineHeight: 46,
+    paragraphGap: 20,
+  });
+  const article = `> ${'emphasis '.repeat(30)}\n> **bold ending**`;
+  const pages = layoutArticle(article, settings, measure);
+  const quoteLines = pages.flatMap((page) => page.blocks.filter((block) => block.type === 'quote'));
+  const maxTextWidth =
+    settings.width -
+    settings.marginLeft -
+    settings.marginRight -
+    settings.quoteBarWidth -
+    settings.quotePaddingLeft;
+
+  assert.ok(pages.length > 1);
+  assert.ok(quoteLines.length > 2);
+  assert.ok(quoteLines.every((line) => line.x === settings.marginLeft + settings.quoteBarWidth + settings.quotePaddingLeft));
+  assert.ok(quoteLines.every((line) => line.barX === settings.marginLeft));
+  assert.ok(quoteLines.every((line) => line.barWidth === settings.quoteBarWidth));
+  assert.ok(quoteLines.every((line) => measure(line.text, line) <= maxTextWidth));
+  assert.ok(quoteLines.every((line) => line.y + settings.lineHeight <= settings.height - settings.footerHeight));
+  assert.ok(quoteLines.some((line) => line.runs.some((run) => run.fontWeight === 700)));
+  assert.equal(quoteLines.some((line) => line.text.includes('**')), false);
+});
+
+test('layoutArticle preserves an empty quote line and keeps its bar continuous', () => {
+  const settings = createDefaultSettings({
+    width: 600,
+    marginLeft: 50,
+    marginRight: 50,
+    marginTop: 40,
+    footerEnabled: false,
+    fontSize: 30,
+    lineHeight: 50,
+  });
+  const pages = layoutArticle('> 第一行\n>\n> 第三行', settings, measure);
+  const quoteLines = pages.flatMap((page) => page.blocks.filter((block) => block.type === 'quote'));
+
+  assert.deepEqual(quoteLines.map((line) => line.text), ['第一行', '', '第三行']);
+  assert.equal(quoteLines[1].y, quoteLines[0].y + settings.lineHeight);
+  assert.equal(quoteLines[2].y, quoteLines[1].y + settings.lineHeight);
+  assert.ok(quoteLines.every((line) => line.barX === settings.marginLeft));
+  assert.ok(quoteLines.every((line) => line.barWidth === settings.quoteBarWidth));
+});
+
+test('layoutArticle makes bold quote runs heavier without changing body bold weight', () => {
+  const settings = createDefaultSettings({ quoteFontWeight: 700 });
+  const quoteBlock = layoutArticle('> 普通**重点**结束', settings, measure)[0].blocks[0];
+  const bodyBlock = layoutArticle('普通**重点**结束', settings, measure)[0].blocks[0];
+
+  assert.deepEqual(quoteBlock.runs.map((run) => run.text), ['普通', '重点', '结束']);
+  assert.deepEqual(quoteBlock.runs.map((run) => run.fontWeight), [700, 800, 700]);
+  assert.deepEqual(bodyBlock.runs.map((run) => run.fontWeight), [400, 700, 400]);
+});
+
+test('layoutArticle clamps quote maxWidth to a positive value for narrow settings', () => {
+  const settings = createDefaultSettings({
+    width: 100,
+    marginLeft: 50,
+    marginRight: 50,
+    fontSize: 20,
+  });
+  const quoteLines = layoutArticle('> abc', settings, measure)
+    .flatMap((page) => page.blocks)
+    .filter((block) => block.type === 'quote');
+
+  assert.ok(quoteLines.length > 0);
+  assert.ok(quoteLines.every((line) => line.maxWidth === 1));
+  assert.equal(quoteLines.map((line) => line.text).join(''), 'abc');
 });
 
 test('createDefaultSettings uses Lin Beta as the default author name', () => {
@@ -267,6 +375,99 @@ test('formatPageNumber returns current page over total pages', () => {
   assert.equal(formatPageNumber(2, 12), '2 / 12');
 });
 
+test('drawPage renders quote bars and runs with the quote color and run weights', (t) => {
+  const operations = [];
+  const savedStyles = [];
+  const context = {
+    fillStyle: '',
+    font: '',
+    textAlign: 'left',
+    textBaseline: 'alphabetic',
+    fillRect(x, y, width, height) {
+      operations.push({ type: 'fillRect', x, y, width, height, fillStyle: this.fillStyle });
+    },
+    fillText(text, x, y) {
+      operations.push({ type: 'fillText', text, x, y, fillStyle: this.fillStyle, font: this.font });
+    },
+    measureText(text) {
+      return { width: Array.from(String(text)).length * 10 };
+    },
+    save() {
+      savedStyles.push({
+        fillStyle: this.fillStyle,
+        font: this.font,
+        textAlign: this.textAlign,
+        textBaseline: this.textBaseline,
+      });
+    },
+    restore() {
+      Object.assign(this, savedStyles.pop());
+    },
+  };
+  const canvas = { getContext: () => context };
+  const originalDocument = globalThis.document;
+  globalThis.document = { createElement: () => canvas };
+  t.after(() => {
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  });
+
+  const settings = createDefaultSettings({
+    footerEnabled: false,
+    quoteColor: '#b64535',
+    textColor: '#f1ece4',
+  });
+  const page = {
+    index: 0,
+    hasAuthorHeader: false,
+    blocks: [
+      {
+        type: 'quote',
+        text: '普通重点',
+        x: 52,
+        y: 80,
+        barX: 24,
+        barWidth: 6,
+        fontSize: 43,
+        fontWeight: 700,
+        runs: [
+          { text: '普通', fontSize: 43, fontWeight: 700 },
+          { text: '重点', fontSize: 43, fontWeight: 800 },
+        ],
+      },
+      { type: 'text', text: '正文', x: 24, y: 160, fontSize: 43, fontWeight: 400 },
+    ],
+  };
+
+  drawPage(page, settings, null, 1);
+
+  assert.deepEqual(
+    operations.find((operation) => operation.type === 'fillRect' && operation.x === 24 && operation.y === 80),
+    {
+      type: 'fillRect',
+      x: 24,
+      y: 80,
+      width: 6,
+      height: settings.lineHeight,
+      fillStyle: '#b64535',
+    },
+  );
+  const quoteText = operations.filter(
+    (operation) => operation.type === 'fillText' && ['普通', '重点'].includes(operation.text),
+  );
+  assert.deepEqual(
+    quoteText.map(({ text, x, y, fillStyle, font }) => ({ text, x, y, fillStyle, font })),
+    [
+      { text: '普通', x: 52, y: 80, fillStyle: '#b64535', font: `700 43px ${settings.fontFamily}` },
+      { text: '重点', x: 72, y: 80, fillStyle: '#b64535', font: `800 43px ${settings.fontFamily}` },
+    ],
+  );
+  assert.equal(
+    operations.find((operation) => operation.type === 'fillText' && operation.text === '正文').fillStyle,
+    settings.textColor,
+  );
+});
+
 test('parseArticleBlocks recognizes markdown headings for reference-style section titles', () => {
   const blocks = parseArticleBlocks('# 在咖啡厅美美玩一天，一个 bug 全没了\n\n正文');
 
@@ -335,6 +536,91 @@ test('applyBulletList prefixes the current line when there is no selection', () 
   assert.equal(result.value, '标题\n• 执行方式');
   assert.equal(result.selectionStart, 7);
   assert.equal(result.selectionEnd, 7);
+});
+
+test('applyBulletList does not include a line touched only by the selection end', () => {
+  const value = 'first\nsecond\nthird';
+  const result = applyBulletList(value, 0, value.indexOf('second'));
+
+  assert.equal(result.value, '• first\nsecond\nthird');
+  assert.equal(result.selectionStart, 0);
+  assert.equal(result.selectionEnd, '• first\n'.length);
+});
+
+test('toggleQuoteSelection quotes the current paragraph and toggles it off', () => {
+  const value = 'intro\n\nfocus first\nfocus second\n\noutro';
+  const cursor = value.indexOf('second');
+  const quoted = toggleQuoteSelection(value, cursor, cursor);
+
+  assert.equal(quoted.value, 'intro\n\n> focus first\n> focus second\n\noutro');
+  assert.equal(quoted.selectionStart, cursor + 4);
+  assert.equal(quoted.selectionEnd, cursor + 4);
+
+  const restored = toggleQuoteSelection(quoted.value, quoted.selectionStart, quoted.selectionEnd);
+  assert.equal(restored.value, value);
+  assert.equal(restored.selectionStart, cursor);
+  assert.equal(restored.selectionEnd, cursor);
+});
+
+test('toggleQuoteSelection applies to selected non-empty lines', () => {
+  const value = 'first\nsecond\n\nthird';
+  const selectionEnd = value.indexOf('\n\n');
+  const result = toggleQuoteSelection(value, 0, selectionEnd);
+
+  assert.equal(result.value, '> first\n> second\n\nthird');
+  assert.equal(result.selectionStart, 0);
+  assert.equal(result.selectionEnd, '> first\n> second'.length);
+});
+
+test('toggleQuoteSelection does not include a line touched only by the selection end', () => {
+  const value = 'first\nsecond\nthird';
+  const result = toggleQuoteSelection(value, 0, value.indexOf('second'));
+
+  assert.equal(result.value, '> first\nsecond\nthird');
+  assert.equal(result.selectionStart, 0);
+  assert.equal(result.selectionEnd, '> first\n'.length);
+});
+
+test('toggleQuoteSelection does nothing when the cursor is on a blank separator line', () => {
+  const value = 'first\n\nthird';
+  const cursor = value.indexOf('\n\n') + 1;
+  const result = toggleQuoteSelection(value, cursor, cursor);
+
+  assert.deepEqual(result, {
+    value,
+    selectionStart: cursor,
+    selectionEnd: cursor,
+  });
+});
+
+test('toggleQuoteSelection removes quotes across selected paragraphs and preserves blank lines', () => {
+  const value = '> first\n\n> third';
+  const result = toggleQuoteSelection(value, 0, value.length);
+  const expected = 'first\n\nthird';
+
+  assert.equal(result.value, expected);
+  assert.equal(result.selectionStart, 0);
+  assert.equal(result.selectionEnd, expected.length);
+});
+
+test('toggleQuoteSelection removes spaced and unspaced quote prefixes from a full selection', () => {
+  const value = '>first\n> second';
+  const result = toggleQuoteSelection(value, 0, value.length);
+  const expected = 'first\nsecond';
+
+  assert.equal(result.value, expected);
+  assert.equal(result.selectionStart, 0);
+  assert.equal(result.selectionEnd, expected.length);
+});
+
+test('toggleQuoteSelection removes spaced and unspaced quote prefixes from the current paragraph', () => {
+  const value = '>first\n> second';
+  const cursor = value.indexOf('r');
+  const result = toggleQuoteSelection(value, cursor, cursor);
+
+  assert.equal(result.value, 'first\nsecond');
+  assert.equal(result.selectionStart, cursor - 1);
+  assert.equal(result.selectionEnd, cursor - 1);
 });
 
 test('insertImageReference inserts marker at the captured selection', () => {

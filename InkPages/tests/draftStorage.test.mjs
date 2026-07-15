@@ -37,3 +37,13 @@ test('readDraft and writeDraft use available storage normally', () => {
   assert.equal(writeDraft(storage, 'draft', 'content'), true);
   assert.equal(readDraft(storage, 'draft', 'sample'), 'content');
 });
+
+test('readDraft preserves an intentionally empty draft', () => {
+  const storage = {
+    getItem() {
+      return '';
+    },
+  };
+
+  assert.equal(readDraft(storage, 'draft', 'sample'), '');
+});

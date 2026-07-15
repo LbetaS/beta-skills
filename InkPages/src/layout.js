@@ -50,6 +50,10 @@ export function createDefaultSettings(overrides = {}) {
     codeBackgroundColor: '#19150f',
     codeBorderColor: '#3a332c',
     codeTextColor: '#f1ece4',
+    quoteColor: '#155b67',
+    quoteBarWidth: 5,
+    quotePaddingLeft: 28,
+    quoteFontWeight: 700,
     fontFamily: '"XHS Reference Serif", "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif',
     textColor: '#f1ece4',
     backgroundColor: '#0f0d0a',
@@ -155,6 +159,18 @@ export function parseArticleBlocks(text) {
       blocks.push({
         type: 'image',
         id: imageId,
+      });
+      return;
+    }
+
+    const lines = paragraph.split('\n');
+    const quoteLines = lines.map((line) => line.trimStart().replace(/^>\s?/, ''));
+    const isQuote =
+      lines.every((line) => /^>\s?/.test(line.trimStart())) && quoteLines.some((line) => line.trim());
+    if (isQuote) {
+      blocks.push({
+        type: 'quote',
+        text: quoteLines.join('\n'),
       });
       return;
     }
@@ -356,7 +372,7 @@ export function wrapParagraph(paragraph, settings, measureText, style = {}) {
 }
 
 export function wrapRichParagraph(paragraph, settings, measureText, style = {}) {
-  const maxWidth = settings.width - settings.marginLeft - settings.marginRight;
+  const maxWidth = style.maxWidth ?? settings.width - settings.marginLeft - settings.marginRight;
   const items = runsToItems(parseInlineRuns(paragraph, style));
   const lines = [];
   let current = [];
@@ -625,6 +641,43 @@ export function layoutArticle(text, rawSettings = {}, measureText) {
       }
 
       y += settings.headingGap;
+      continue;
+    }
+
+    if (articleBlock.type === 'quote') {
+      const quoteIndent = settings.quoteBarWidth + settings.quotePaddingLeft;
+      const style = {
+        fontSize: settings.fontSize,
+        fontFamily: settings.fontFamily,
+        fontWeight: settings.quoteFontWeight,
+        boldWeight: Math.min(900, settings.quoteFontWeight + 100),
+        type: 'quote',
+        maxWidth: Math.max(1, settings.width - settings.marginLeft - settings.marginRight - quoteIndent),
+      };
+      const lines = articleBlock.text
+        .split('\n')
+        .flatMap((hardLine) => {
+          const wrappedLines = wrapRichParagraph(hardLine, settings, measureText, style);
+          return wrappedLines.length ? wrappedLines : [{ text: '', runs: [] }];
+        });
+
+      for (const line of lines) {
+        if (pageHasOccupiedSpace() && y + settings.lineHeight > bottom) {
+          nextPage();
+        }
+        page.blocks.push({
+          ...style,
+          text: line.text,
+          runs: line.runs,
+          x: settings.marginLeft + quoteIndent,
+          y,
+          barX: settings.marginLeft,
+          barWidth: settings.quoteBarWidth,
+        });
+        y += settings.lineHeight;
+      }
+
+      y += settings.paragraphGap;
       continue;
     }
 

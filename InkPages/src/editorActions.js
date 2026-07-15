@@ -42,6 +42,104 @@ function bulletLine(line, bullet) {
   return content.startsWith(bullet) ? line : `${leading}${bullet}${content}`;
 }
 
+function paragraphStartAt(text, index) {
+  const before = text.slice(0, index);
+  const separators = Array.from(before.matchAll(/\n(?:[ \t\r]*\n)+/g));
+  const separator = separators[separators.length - 1];
+  return separator ? separator.index + separator[0].length : 0;
+}
+
+function paragraphEndAt(text, index) {
+  const separator = text.slice(index).match(/\n(?:[ \t\r]*\n)+/);
+  return separator ? index + separator.index : text.length;
+}
+
+function quotePrefixLength(content, prefix) {
+  if (content.startsWith(prefix)) return prefix.length;
+
+  const compactPrefix = prefix.trimEnd();
+  if (compactPrefix !== prefix && compactPrefix && content.startsWith(compactPrefix)) {
+    return compactPrefix.length;
+  }
+
+  return 0;
+}
+
+function quoteLine(line, remove, prefix) {
+  if (!line.trim()) return line;
+  const leading = line.match(/^[ \t]*/)?.[0] ?? '';
+  const content = line.slice(leading.length);
+
+  if (remove) return `${leading}${content.slice(quotePrefixLength(content, prefix))}`;
+  return content.startsWith(prefix) ? line : `${leading}${prefix}${content}`;
+}
+
+function mapQuoteOffset(lines, relativeOffset, remove, prefix, affinity) {
+  let sourceLineStart = 0;
+  let delta = 0;
+
+  for (const line of lines) {
+    if (line.trim()) {
+      const leadingLength = line.match(/^[ \t]*/)?.[0].length ?? 0;
+      const content = line.slice(leadingLength);
+      const prefixStart = sourceLineStart + leadingLength;
+
+      if (remove) {
+        const removedPrefixLength = quotePrefixLength(content, prefix);
+        const prefixEnd = prefixStart + removedPrefixLength;
+        if (relativeOffset > prefixStart && relativeOffset < prefixEnd) {
+          return prefixStart + delta;
+        }
+        if (relativeOffset >= prefixEnd) delta -= removedPrefixLength;
+      } else if (!content.startsWith(prefix)) {
+        if (relativeOffset > prefixStart || (relativeOffset === prefixStart && affinity === 'right')) {
+          delta += prefix.length;
+        }
+      }
+    }
+
+    sourceLineStart += line.length + 1;
+  }
+
+  return Math.max(0, relativeOffset + delta);
+}
+
+export function toggleQuoteSelection(value, selectionStart, selectionEnd, prefix = '> ') {
+  const text = String(value);
+  const { start, end } = clampSelection(text, selectionStart, selectionEnd);
+  const hasSelection = start !== end;
+
+  if (!hasSelection) {
+    const currentLine = text.slice(lineStartAt(text, start), lineEndAt(text, start));
+    if (!currentLine.trim()) {
+      return { value: text, selectionStart: start, selectionEnd: end };
+    }
+  }
+
+  const blockStart = hasSelection ? lineStartAt(text, start) : paragraphStartAt(text, start);
+  const selectionEndsAtLineStart = hasSelection && lineStartAt(text, end) === end;
+  const selectedLineEnd = selectionEndsAtLineStart ? end - 1 : end;
+  const blockEnd = hasSelection ? lineEndAt(text, selectedLineEnd) : paragraphEndAt(text, end);
+  const block = text.slice(blockStart, blockEnd);
+  const lines = block.split('\n');
+  const nonEmptyLines = lines.filter((line) => line.trim());
+  const remove =
+    nonEmptyLines.length > 0 &&
+    nonEmptyLines.every((line) => {
+      const leadingLength = line.match(/^[ \t]*/)?.[0].length ?? 0;
+      return quotePrefixLength(line.slice(leadingLength), prefix) > 0;
+    });
+  const nextBlock = lines.map((line) => quoteLine(line, remove, prefix)).join('\n');
+  const nextStart = mapQuoteOffset(lines, start - blockStart, remove, prefix, hasSelection ? 'left' : 'right');
+  const nextEnd = mapQuoteOffset(lines, end - blockStart, remove, prefix, 'right');
+
+  return {
+    value: text.slice(0, blockStart) + nextBlock + text.slice(blockEnd),
+    selectionStart: blockStart + nextStart,
+    selectionEnd: blockStart + nextEnd,
+  };
+}
+
 export function applyBulletList(value, selectionStart, selectionEnd, bullet = 'â€¢ ') {
   const text = String(value);
   const { start, end } = clampSelection(text, selectionStart, selectionEnd);
@@ -69,7 +167,9 @@ export function applyBulletList(value, selectionStart, selectionEnd, bullet = 'â
   }
 
   const blockStart = lineStartAt(text, start);
-  const blockEnd = lineEndAt(text, end);
+  const selectionEndsAtLineStart = lineStartAt(text, end) === end;
+  const selectedLineEnd = selectionEndsAtLineStart ? end - 1 : end;
+  const blockEnd = lineEndAt(text, selectedLineEnd);
   const block = text.slice(blockStart, blockEnd);
   const nextBlock = block
     .split('\n')
@@ -79,7 +179,9 @@ export function applyBulletList(value, selectionStart, selectionEnd, bullet = 'â
   return {
     value: text.slice(0, blockStart) + nextBlock + text.slice(blockEnd),
     selectionStart: blockStart,
-    selectionEnd: blockStart + nextBlock.length,
+    selectionEnd: selectionEndsAtLineStart
+      ? end + nextBlock.length - block.length
+      : blockStart + nextBlock.length,
   };
 }
 

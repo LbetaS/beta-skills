@@ -7,12 +7,19 @@ import {
   extractReferencedImageIds,
   insertImageReference,
   removeImageReference,
+  toggleQuoteSelection,
   wrapBoldSelection,
 } from './editorActions.js';
 import { loadImageFile, loadRetainedImageFile } from './imageFiles.js';
 import { applyColorPresetToControls, darkModeColorPreset, readSettingControlValue } from './settingsControls.js';
 import { readDraft, writeDraft } from './draftStorage.js';
 import { createEditorHistory } from './editorHistory.js';
+import {
+  applyQuoteColor,
+  setQuotePopoverOpen,
+  shouldRenderControlChange,
+  syncQuoteColorControls,
+} from './quoteControls.js';
 
 const draftKey = 'graphic-layout-article-draft';
 const draftStorage = (() => {
@@ -66,6 +73,11 @@ const elements = {
   undoButton: document.querySelector('#undoButton'),
   boldButton: document.querySelector('#boldButton'),
   bulletButton: document.querySelector('#bulletButton'),
+  quoteTool: document.querySelector('#quoteTool'),
+  quoteButton: document.querySelector('#quoteButton'),
+  quoteColorPopover: document.querySelector('#quoteColorPopover'),
+  quoteColorInput: document.querySelector('#quoteColorInput'),
+  quoteSwatches: Array.from(document.querySelectorAll('[data-quote-color]')),
   codeButton: document.querySelector('#codeButton'),
   imageButton: document.querySelector('#imageButton'),
   pageBreakButton: document.querySelector('#pageBreakButton'),
@@ -314,7 +326,7 @@ for (const control of elements.controls) {
   control.addEventListener('keydown', ensureControlViewport);
   control.addEventListener('input', renderFromControl);
   control.addEventListener('change', () => {
-    renderFromControl();
+    if (shouldRenderControlChange(control)) renderFromControl();
     releaseControlViewportSoon();
   });
   control.addEventListener('blur', releaseControlViewportSoon);
@@ -352,6 +364,58 @@ elements.bulletButton.addEventListener('click', () => {
   const viewport = captureEditorViewport(elements.text, elements.panel);
   const result = applyBulletList(elements.text.value, elements.text.selectionStart, elements.text.selectionEnd);
   applyTextEdit(result, viewport);
+});
+
+elements.quoteButton.addEventListener('click', (event) => {
+  event.stopPropagation();
+  const shouldOpen = elements.quoteColorPopover.hidden;
+  const viewport = captureEditorViewport(elements.text, elements.panel);
+  const result = toggleQuoteSelection(
+    elements.text.value,
+    elements.text.selectionStart,
+    elements.text.selectionEnd,
+  );
+
+  applyTextEdit(result, viewport);
+  syncQuoteColorControls(elements.quoteSwatches, elements.quoteColorInput.value);
+  setQuotePopoverOpen(
+    elements.quoteButton,
+    elements.quoteColorPopover,
+    shouldOpen,
+    null,
+    elements.quoteSwatches,
+  );
+});
+
+for (const swatch of elements.quoteSwatches) {
+  swatch.addEventListener('pointerdown', rememberControlViewport, { capture: true });
+  swatch.addEventListener('click', (event) => {
+    event.stopPropagation();
+    applyQuoteColor(elements.quoteColorInput, elements.quoteSwatches, swatch.dataset.quoteColor);
+    setQuotePopoverOpen(elements.quoteButton, elements.quoteColorPopover, false, elements.text);
+    releaseControlViewportSoon();
+  });
+}
+
+elements.quoteColorInput.addEventListener('input', () => {
+  syncQuoteColorControls(elements.quoteSwatches, elements.quoteColorInput.value);
+});
+
+elements.quoteColorInput.addEventListener('change', () => {
+  setQuotePopoverOpen(elements.quoteButton, elements.quoteColorPopover, false, elements.text);
+});
+
+document.addEventListener('click', (event) => {
+  if (!elements.quoteColorPopover.hidden && !elements.quoteTool.contains(event.target)) {
+    setQuotePopoverOpen(elements.quoteButton, elements.quoteColorPopover, false);
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !elements.quoteColorPopover.hidden) {
+    event.preventDefault();
+    setQuotePopoverOpen(elements.quoteButton, elements.quoteColorPopover, false, elements.quoteButton);
+  }
 });
 
 elements.text.addEventListener('keydown', (event) => {
@@ -503,6 +567,7 @@ elements.exportButton.addEventListener('click', async () => {
   }
 });
 
+syncQuoteColorControls(elements.quoteSwatches, elements.quoteColorInput.value);
 render();
 document.fonts?.ready.then(render);
 

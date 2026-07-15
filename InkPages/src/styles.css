@@ -242,6 +242,99 @@ button {
   line-height: 0.85;
 }
 
+.quote-tool {
+  position: relative;
+  width: 38px;
+  height: 34px;
+  min-width: 0;
+}
+
+.quote-tool-button {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.quote-tool-button[aria-expanded="true"] {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  box-shadow: 0 1px 4px rgb(23 23 21 / 10%);
+}
+
+.quote-color-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 208px;
+  max-width: calc(100vw - 32px);
+  padding: 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgb(23 23 21 / 18%);
+}
+
+.quote-color-popover[hidden] {
+  display: none;
+}
+
+.quote-color-title {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-swatches {
+  display: grid;
+  grid-template-columns: repeat(5, 28px);
+  gap: 7px;
+  margin: 9px 0 11px;
+}
+
+.quote-swatches button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid var(--surface);
+  border-radius: 5px;
+  outline: 1px solid var(--line-strong);
+  background: var(--quote-swatch);
+  cursor: pointer;
+}
+
+.quote-swatches button:hover,
+.quote-swatches button:focus-visible,
+.quote-swatches button[aria-pressed="true"] {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.quote-custom-color {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.quote-custom-color span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-custom-color input[type="color"] {
+  width: 44px;
+  height: 32px;
+}
+
 .image-list {
   display: grid;
   gap: 8px;
@@ -649,6 +742,13 @@ input[type="range"] {
     justify-self: start;
   }
 
+  .quote-color-popover {
+    right: auto;
+    left: 50%;
+    width: min(208px, calc(100vw - 56px));
+    transform: translateX(-50%);
+  }
+
   .two-col {
     grid-template-columns: 1fr;
   }
@@ -664,5 +764,18 @@ input[type="range"] {
 
   .preview {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 360px) {
+  .text-tools {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(4, 38px);
+    grid-auto-columns: 38px;
+    max-width: 100%;
+  }
+
+  .quote-color-popover {
+    top: calc(200% + 10px);
   }
 }

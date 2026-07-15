@@ -78,3 +78,9 @@ test('readSettingControlValue reads checkbox and text values', () => {
   assert.equal(readSettingControlValue(false, { type: 'checkbox', checked: true }), true);
   assert.equal(readSettingControlValue('', { type: 'text', value: '新标题' }), '新标题');
 });
+
+test('readSettingControlValue reads the quote color without transforming it', () => {
+  const control = { dataset: { setting: 'quoteColor' }, value: '#b64535', type: 'color' };
+
+  assert.equal(readSettingControlValue('#155b67', control), '#b64535');
+});

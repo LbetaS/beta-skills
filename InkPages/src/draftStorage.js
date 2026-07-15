@@ -1,6 +1,7 @@
 export function readDraft(storage, key, fallback = '') {
   try {
-    return storage?.getItem(key) || fallback;
+    const value = storage?.getItem(key);
+    return typeof value === 'string' ? value : fallback;
   } catch {
     return fallback;
   }

@@ -24,6 +24,23 @@
               <button class="tool-button undo-tool-button" id="undoButton" type="button" title="撤回上一步 Ctrl+Z" aria-label="撤回上一步" disabled>↶</button>
               <button class="tool-button" id="boldButton" type="button" title="加粗选中文字 Ctrl+B" aria-label="加粗选中文字">B</button>
               <button class="tool-button bullet-tool-button" id="bulletButton" type="button" title="添加圆点列表" aria-label="添加圆点列表">•</button>
+              <div class="quote-tool" id="quoteTool">
+                <button class="tool-button quote-tool-button" id="quoteButton" type="button" title="设置或取消强调引用" aria-label="设置或取消强调引用" aria-controls="quoteColorPopover" aria-expanded="false">引</button>
+                <div class="quote-color-popover" id="quoteColorPopover" role="dialog" aria-label="强调引用颜色" hidden>
+                  <span class="quote-color-title">强调颜色</span>
+                  <div class="quote-swatches" role="group" aria-label="常用强调颜色">
+                    <button type="button" data-quote-color="#155b67" style="--quote-swatch: #155b67" aria-label="深青色" aria-pressed="true"></button>
+                    <button type="button" data-quote-color="#b64535" style="--quote-swatch: #b64535" aria-label="砖红色" aria-pressed="false"></button>
+                    <button type="button" data-quote-color="#b8892d" style="--quote-swatch: #b8892d" aria-label="金黄色" aria-pressed="false"></button>
+                    <button type="button" data-quote-color="#4b6b45" style="--quote-swatch: #4b6b45" aria-label="墨绿色" aria-pressed="false"></button>
+                    <button type="button" data-quote-color="#7a4d85" style="--quote-swatch: #7a4d85" aria-label="紫灰色" aria-pressed="false"></button>
+                  </div>
+                  <label class="quote-custom-color" for="quoteColorInput">
+                    <span>自定义</span>
+                    <input id="quoteColorInput" type="color" value="#155b67" data-setting="quoteColor" aria-label="自定义强调颜色">
+                  </label>
+                </div>
+              </div>
               <button class="tool-button code-tool-button" id="codeButton" type="button" title="插入代码模块" aria-label="插入代码模块">码</button>
               <button class="tool-button image-tool-button" id="imageButton" type="button" title="插入图片" aria-label="插入图片">图</button>
               <button class="tool-button page-break-button" id="pageBreakButton" type="button" title="插入空格换页" aria-label="插入空格换页">换</button>

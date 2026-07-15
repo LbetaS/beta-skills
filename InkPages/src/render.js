@@ -254,6 +254,22 @@ export function drawPage(page, settings, avatarImage, totalPages = page.index + 
       continue;
     }
 
+    if (block.type === 'quote') {
+      context.fillStyle = settings.quoteColor;
+      context.fillRect(block.barX, block.y, block.barWidth, settings.lineHeight);
+      let x = block.x;
+      const runs = block.runs?.length ? block.runs : [block];
+      for (const run of runs) {
+        const fontWeight = run.fontWeight ?? block.fontWeight ?? settings.quoteFontWeight;
+        const fontSize = run.fontSize ?? block.fontSize ?? settings.fontSize;
+        context.font = `${fontWeight} ${fontSize}px ${settings.fontFamily}`;
+        context.fillText(run.text, x, block.y);
+        x += context.measureText(run.text).width;
+      }
+      context.fillStyle = settings.textColor;
+      continue;
+    }
+
     let x = block.x;
     const runs = block.runs?.length ? block.runs : [block];
     for (const run of runs) {
