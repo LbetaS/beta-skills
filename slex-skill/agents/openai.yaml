@@ -1,0 +1,4 @@
+interface:
+  display_name: "slex skill"
+  short_description: "基于历史爆款样本风格，创作多角度、可直接拍摄的纯口播短视频文案"
+  default_prompt: "使用 $slex-skill，根据我提供的主题或素材写不同角度的纯口播文案。"
